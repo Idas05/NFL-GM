@@ -7,13 +7,16 @@ const money = v => (v < 0 ? '-' : '') + '$' + Math.abs(v).toFixed(1) + 'M';
 const ovrCls = o => o >= 90 ? 'o90' : o >= 80 ? 'o80' : o >= 70 ? 'o70' : o >= 60 ? 'o60' : 'o0';
 const ovr = o => `<span class="ovr ${ovrCls(o)}">${o}</span>`;
 const ht = h => `${Math.floor(h / 12)}'${h % 12}"`;
+const badge = (a, size) => { const t = (S && S.teams[a]) || window.TEAMS.find(x => x.abbr === a) || { c1: '#333', c2: '#999', abbr: a }; return `<span class="badge ${size || ''}" style="--c1:${t.c1};--c2:${t.c2}">${esc(t.abbr)}</span>`; };
+const lum = h => { const n = parseInt(h.slice(1), 16); return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; };
+const hi = t => { const a = lum(t.c1), b = lum(t.c2); const c = a >= 0.28 ? t.c1 : (b > a ? t.c2 : t.c1); return lum(c) > 0.9 ? t.c1 : c; };
 const rec = T => `${T.w}-${T.l}${T.t ? '-' + T.t : ''}`;
 const ui = { tab: 'home', posF: 'ALL', sort: {}, view: null, modal: null, toast: null, mode: 'now', faPos: 'ALL', proPos: 'ALL', proFilter: 'all', leagueTeam: null, schedWeek: null, watch: {} };
 let S = null;
 
 function toast(msg) { ui.toast = msg; render(); clearTimeout(toast.t); toast.t = setTimeout(() => { ui.toast = null; render(); }, 3200); }
 function commit() { G.save(); render(); }
-function setTheme() { const T = S && S.teams[S.userTeam]; if (T) { document.documentElement.style.setProperty('--team', T.c1); document.documentElement.style.setProperty('--team2', T.c2); } }
+function setTheme() { const T = S && S.teams[S.userTeam]; if (T) { document.documentElement.style.setProperty('--team', T.c1); document.documentElement.style.setProperty('--team2', T.c2); document.documentElement.style.setProperty('--teamhi', hi(T)); } }
 
 // --------- sortable table helper ---------
 function table(id, cols, rows, opts = {}) {
@@ -29,6 +32,7 @@ function table(id, cols, rows, opts = {}) {
 const posSeg = (key, extra = []) => `<div class="seg">${['ALL', ...G.POS, ...extra].map(p => `<button class="${ui[key] === p ? 'on' : ''}" data-act="seg" data-key="${key}" data-val="${p}">${p}</button>`).join('')}</div>`;
 
 // --------- start screen ---------
+const S0season = () => 2026;
 function startScreen() {
   const has = (() => { try { return !!localStorage.getItem('gridiron_gm_save_v1'); } catch (e) { return false; } })();
   const D = window.NFL_DATA;
@@ -37,8 +41,8 @@ function startScreen() {
   G.setState(tmpS);
   const groups = {};
   for (const t of window.TEAMS) (groups[`${t.conf} ${t.div}`] = groups[`${t.conf} ${t.div}`] || []).push(t);
-  return `<div class="wrap"><div class="hero">
-    <div class="muted cond" style="font-size:16px;letter-spacing:.12em;text-transform:uppercase">Front office sim · ${D.meta.cap ? 'Cap $' + D.meta.cap + 'M' : ''}</div>
+  return `<div class="wrap"><div class="hero"><div class="lights"></div>
+    <div class="eyebrow">Front office & sideline · ${S0season()} season</div>
     <h1>Gridiron GM</h1>
     <p class="muted" style="max-width:640px">Take over an NFL franchise as head coach and general manager. Hire scouts, run the draft, battle for free agents under the salary cap, and play your season one game at a time. Rosters are the real 2026 rosters as of Week ${D.meta.roster_week}.</p>
     ${has ? `<div class="row" style="margin:14px 0"><button class="primary big" data-act="continue">Continue saved game</button><span class="muted">or start a new one below (this replaces your save)</span></div>` : ''}
@@ -49,9 +53,9 @@ function startScreen() {
       </div>
       <p class="muted" style="margin:8px 0 0">${ui.mode === 'now' ? `Real results through Week ${D.meta.played_through} are kept. You coach the rest of the season, then head into the offseason.` : 'Every team starts 0-0 with the real 2026 schedule.'}</p>
     </div>
-    <h2 style="margin:22px 0 10px">Pick your team</h2>
-    ${Object.entries(groups).map(([g, L]) => `<h3 class="muted" style="margin:14px 0 8px">${g}</h3><div class="teamgrid">${L.map(t => `
-      <button class="teambtn" data-act="pickteam" data-team="${t.abbr}"><span class="sw" style="background:linear-gradient(${t.c1} 65%,${t.c2} 65%)"></span>
+    <h2 style="margin:26px 0 4px;font-size:30px">Choose your franchise</h2>
+    ${Object.entries(groups).map(([g, L]) => `<div class="divlabel">${g}</div><div class="teamgrid">${L.map(t => `
+      <button class="teambtn" style="--c1:${t.c1};--c2:${t.c2}" data-act="pickteam" data-team="${t.abbr}">${badge(t.abbr)}
       <span style="flex:1"><b>${esc(t.city)} ${esc(t.nick)}</b><br><span class="muted">${ui.mode === 'now' ? rec(R[t.abbr].T) + ' · ' : ''}OFF ${R[t.abbr].r.off} · DEF ${R[t.abbr].r.def}</span></span>${ovr(R[t.abbr].r.ovr)}</button>`).join('')}</div>`).join('')}
     <div class="foot">Roster, snap and stat data: nflverse (rosters_weekly_2026, snap_counts, stats_player, schedules). Ratings and contracts are this game's own estimates, not official figures. The 2027 draft class's top prospects are real college players from public big boards (Athlon Sports, NFL Draft Countdown); later rounds and future classes are generated. Not affiliated with the NFL or any game publisher.</div>
   </div></div>`;
@@ -64,7 +68,7 @@ function shell(inner) {
   const tabs = TABS.filter(([k]) => (k !== 'resign' || S.phase === 'resign') && (k !== 'draft' || ['draft', 'preseason'].includes(S.phase) || S.draft));
   return `<header class="top"><div class="wrap">
     <div class="topbar">
-      <div class="teamtag"><span class="swatch"></span><div><div class="brand">${esc(T.city)} ${esc(T.nick)}</div><div class="muted" style="font-size:12px">${S.season} · ${esc(G.phaseLabel())}</div></div></div>
+      <div class="teamtag">${badge(S.userTeam)}<div><div class="sub">${esc(T.city)}</div><div class="brand">${esc(T.nick)}</div><div class="sub">${S.season} season · ${esc(G.phaseLabel())}</div></div></div>
       <div class="kpis">
         <div class="kpi"><div class="l">Record</div><div class="v">${rec(T)}</div></div>
         <div class="kpi"><div class="l">Team OVR</div><div class="v">${r.ovr} <span class="muted" style="font-size:13px">O${r.off}/D${r.def}</span></div></div>
@@ -72,9 +76,9 @@ function shell(inner) {
         <div class="kpi"><div class="l">Roster</div><div class="v ${S.phase === 'preseason' && G.roster(S.userTeam).length > G.ROSTER_MAX ? 'warn' : ''}">${G.roster(S.userTeam).length}${S.phase === 'preseason' ? '/' + G.ROSTER_MAX : ''}</div></div>
       </div>
     </div>
-    <nav class="tabs">${tabs.map(([k, l]) => `<button class="${ui.tab === k ? 'on' : ''}" data-act="tab" data-tab="${k}">${l}</button>`).join('')}</nav>
+    <nav class="tabs">${tabs.map(([k, l]) => `<button class="${ui.tab === k ? 'on' : ''}" data-act="tab" data-tab="${k}">${l}${k === 'scouting' && S.scouts.some(s => !s.assign) && ['regular', 'playoffs', 'freeagency'].includes(S.phase) ? '<span class="dot" title="Idle scouts"></span>' : ''}${k === 'draft' && S.phase === 'draft' && G.onClock() && G.onClock().team === S.userTeam ? '<span class="dot" title="On the clock"></span>' : ''}</button>`).join('')}</nav>
   </div></header>
-  <main><div class="wrap">${inner}</div></main>`;
+  <main class="${ui.anim ? 'anim' : ''}"><div class="wrap">${inner}</div></main>`;
 }
 
 // --------- home ---------
@@ -103,23 +107,15 @@ function phaseCard() {
     const home = g.h === S.userTeam; const opp = home ? g.a : g.h; const O = S.teams[opp];
     const rO = G.teamRatings(opp), rU = G.teamRatings(S.userTeam);
     const wp = G.winProb(g); const myWp = home ? wp : 1 - wp;
-    return `<div class="card"><div class="row"><h3>Week ${S.week}: ${home ? 'vs' : '@'} ${esc(O.city)} ${esc(O.nick)}</h3><span class="sp"></span><span class="chip">${rec(O)}</span></div>
-      <div class="grid g3" style="margin:8px 0">
-        <div><div class="muted" style="font-size:12px">Your offense vs their defense</div><b>${rU.off}</b> vs <b>${rO.def}</b></div>
-        <div><div class="muted" style="font-size:12px">Your defense vs their offense</div><b>${rU.def}</b> vs <b>${rO.off}</b></div>
-        <div><div class="muted" style="font-size:12px">Projected win chance</div><b>${Math.round(myWp * 100)}%</b><div class="bar"><i style="width:${Math.round(myWp * 100)}%"></i></div></div>
-      </div>
-      ${gamePlan()}
-      <div class="row" style="margin-top:14px"><button class="primary big" data-act="playweek">Play Week ${S.week} game</button><span class="muted">Only this week is played. Nothing simulates ahead.</span></div></div>`;
+    return versus(g, `Week ${S.week}`, 'playweek', `Kick off · Week ${S.week}`);
   }
   if (S.phase === 'playoffs') {
     const P = S.playoffs;
-    if (P.champ) return `<div class="card"><h3>${esc(G.tname(P.champ))} are champions</h3><p class="muted">${P.champ === S.userTeam ? 'You won it all. Time to defend the title.' : 'The season is over.'} Next up: re-sign your players, then free agency and the draft.</p><button class="primary big" data-act="offseason">Begin the offseason</button></div>`;
+    if (P.champ) return `<div class="card" style="text-align:center">${badge(P.champ, 'xl')}<div class="trophy" style="margin-top:10px">${P.champ === S.userTeam ? 'World champions' : 'Season complete'}</div><h3 style="justify-content:center">${esc(G.tname(P.champ))} win the title</h3><p class="muted">${P.champ === S.userTeam ? 'You won it all. Time to defend the title.' : 'The season is over.'} Next up: re-sign your players, then free agency and the draft.</p><div class="row" style="justify-content:center"><button class="primary big" data-act="offseason">Begin the offseason</button></div></div>`;
     const alive = G.userInPlayoffs();
     const mine = P.games.find(g => g.round === P.round && g.as == null && (g.a === S.userTeam || g.h === S.userTeam));
     return `<div class="card"><h3>Playoffs · ${G.ROUNDS[P.round]} round</h3>
-      ${mine ? `<p>You ${mine.h === S.userTeam ? 'host' : 'visit'} the <b>${esc(G.tname(mine.h === S.userTeam ? mine.a : mine.h))}</b>.</p>${gamePlan()}` : `<p class="muted">${alive ? 'You have a first-round bye.' : 'You are out of the playoffs. Your scouts keep working while the playoffs finish.'}</p>`}
-      <div class="row" style="margin-top:12px"><button class="primary big" data-act="playoffround">${mine ? 'Play playoff game' : 'Play next round'}</button></div></div>`;
+      ${mine ? '' : `<p class="muted">${alive ? 'You have a first-round bye.' : 'You are out of the playoffs. Your scouts keep working while the playoffs finish.'}</p><div class="row" style="margin-top:12px"><button class="primary big" data-act="playoffround">Play next round</button></div>`}</div>${mine ? versus(mine, G.ROUNDS[P.round] + ' round', 'playoffround', 'Kick off · ' + G.ROUNDS[P.round]) : ''}`;
   }
   if (S.phase === 'resign') {
     const ex = G.expiring(S.userTeam);
@@ -143,6 +139,68 @@ function phaseCard() {
     <p>${n > G.ROSTER_MAX ? `<span class="warn">You have ${n} players — cut ${n - G.ROSTER_MAX}.</span>` : `<span class="good">Roster is ${n}/${G.ROSTER_MAX}.</span>`}</p>
     <div class="row">${n > G.ROSTER_MAX ? `<button data-act="autocut">Auto-cut to ${G.ROSTER_MAX}</button>` : ''}<button data-act="tab" data-tab="roster">Manage roster</button><button class="primary big" data-act="startseason">Start the ${S.season + 1} season</button></div></div>`;
 }
+function versus(g, label, act, btn) {
+  const home = g.h === S.userTeam, opp = home ? g.a : g.h;
+  const A = S.teams[g.a], H = S.teams[g.h], ra = G.teamRatings(g.a), rh = G.teamRatings(g.h);
+  const wp = G.winProb(g), myWp = Math.round((home ? wp : 1 - wp) * 100);
+  const line = (l, a, h) => { const mx = Math.max(a, h); return `<div class="tale"><span style="text-align:right;color:${a >= h ? 'var(--ink)' : 'var(--muted)'}">${a}</span><div class="lb"><i style="width:${(a - 50) / 50 * 100}%;background:${hi(A)}"></i></div><span class="mid">${l}</span><div class="rb"><i style="width:${(h - 50) / 50 * 100}%;background:${hi(H)}"></i></div><span style="color:${h >= a ? 'var(--ink)' : 'var(--muted)'}">${h}</span></div>`; };
+  return `<div class="card versus" style="--c1a:${A.c1};--c1h:${H.c1}"><div class="vsbody">
+    <div class="side">${badge(g.a, 'lg')}<div class="nm">${esc(A.nick)}</div><div class="label">${rec(A)} · Away</div></div>
+    <div style="text-align:center"><div class="label">${esc(label)}</div><div class="vsx">VS</div></div>
+    <div class="side r">${badge(g.h, 'lg')}<div class="nm">${esc(H.nick)}</div><div class="label">${rec(H)} · Home</div></div></div>
+    <div class="inner">${line('Overall', ra.ovr, rh.ovr)}${line('Offense', ra.off, rh.off)}${line('Defense', ra.def, rh.def)}
+    <div class="row" style="margin-top:10px"><div><div class="label" style="font:600 11px var(--cond);letter-spacing:.16em;color:var(--muted);text-transform:uppercase">Your win chance</div><div class="wp">${myWp}%</div></div><span class="sp"></span><div style="min-width:min(100%,300px);flex:2">${gamePlan()}</div></div>
+    <div class="row" style="margin-top:16px"><button class="primary big" data-act="${act}">${esc(btn)}</button><span class="muted">Only this game is played. Nothing simulates ahead.</span></div></div></div>`;
+}
+
+// --------- live game presentation ---------
+const overlay = document.createElement('div'); overlay.id = 'overlay'; document.body.appendChild(overlay);
+let live = null;
+function startLive(g) {
+  if (!g || !g.ev) return;
+  const steps = []; const qs = g.ot ? 5 : 4;
+  for (let q = 0; q < qs; q++) { steps.push({ q, start: true }); g.ev.filter(e => e.q === q).forEach(e => steps.push({ q, e })); }
+  steps.push({ final: true });
+  live = { g, steps, i: 0, a: 0, h: 0, qa: [0, 0, 0, 0, 0], qh: [0, 0, 0, 0, 0], log: [], q: 0, done: false };
+  drawLive(); live.timer = setInterval(stepLive, matchMedia('(prefers-reduced-motion: reduce)').matches ? 60 : 650);
+}
+function stepLive(skip) {
+  if (!live) return;
+  do {
+    const st = live.steps[live.i++]; if (!st) break;
+    if (st.final) { live.done = true; clearInterval(live.timer); break; }
+    live.q = st.q;
+    if (st.e) {
+      const e = st.e, T = S.teams[e.s === 'a' ? live.g.a : live.g.h];
+      live[e.s] += e.p; (e.s === 'a' ? live.qa : live.qh)[e.q] += e.p; live.pop = e.s;
+      const who = live.g.box && (live.g.box[e.s] || []).find(b => e.t === 'TD' ? /TD/.test(b.line) : b.pos === 'K');
+      live.log.unshift(`<b>${['Q1', 'Q2', 'Q3', 'Q4', 'OT'][e.q]}</b> · ${esc(T.nick)} ${e.t === 'TD' ? 'TOUCHDOWN' : 'field goal'}${who ? ` — ${esc(who.name)}` : ''} <span class="muted">(${live.a}-${live.h})</span>`);
+    }
+  } while (skip);
+  drawLive();
+}
+function drawLive() {
+  if (!live) { overlay.innerHTML = ''; return; }
+  const g = live.g, A = S.teams[g.a], H = S.teams[g.h];
+  const mine = g.h === S.userTeam ? 'h' : 'a', us = live[mine], them = live[mine === 'h' ? 'a' : 'h'];
+  const qn = g.ot ? ['1', '2', '3', '4', 'OT'] : ['1', '2', '3', '4'];
+  const clock = live.done ? 'Final' + (g.ot ? ' / OT' : '') : (['1st', '2nd', '3rd', '4th', 'OT'][live.q] + ' quarter');
+  overlay.innerHTML = `<div class="modal gameov"><div class="card">
+    <div style="text-align:center;margin-bottom:10px"><span class="clock">${clock}</span></div>
+    <div class="scorebug"><div class="tm">${badge(g.a, 'lg')}${esc(A.nick)}</div>
+      <div><span class="sc ${live.pop === 'a' ? 'pop' : ''}">${live.a}</span> <span class="vs">–</span> <span class="sc ${live.pop === 'h' ? 'pop' : ''}">${live.h}</span></div>
+      <div class="tm">${badge(g.h, 'lg')}${esc(H.nick)}</div></div>
+    ${live.done ? `<div style="text-align:center;margin:14px 0 4px"><span class="stamp ${us > them ? 'win' : us < them ? 'loss' : 'tie'}">${us > them ? 'Victory' : us < them ? 'Defeat' : 'Tie'}</span></div>` : ''}
+    <table class="qtable"><tr><th></th>${qn.map(q => `<th>${q}</th>`).join('')}<th>T</th></tr>
+      <tr><td>${esc(A.abbr)}</td>${qn.map((q, i) => `<td>${i <= live.q || live.done ? live.qa[i] : ''}</td>`).join('')}<td><b>${live.a}</b></td></tr>
+      <tr><td>${esc(H.abbr)}</td>${qn.map((q, i) => `<td>${i <= live.q || live.done ? live.qh[i] : ''}</td>`).join('')}<td><b>${live.h}</b></td></tr></table>
+    <div class="ticker">${live.log.map(l => `<div>${l}</div>`).join('') || '<div class="muted">Kickoff…</div>'}</div>
+    ${live.done && g.box ? `<div class="grid" style="grid-template-columns:1fr 1fr;gap:10px;margin-top:12px">${['a', 'h'].map(s => `<div><b>${esc(S.teams[s === 'a' ? g.a : g.h].nick)}</b>${(g.box[s] || []).map(b => `<div style="font-size:12px"><span class="muted">${b.pos}</span> ${esc(b.name)} · ${esc(b.line)}</div>`).join('')}</div>`).join('')}</div>` : ''}
+    <div class="row" style="margin-top:14px"><span class="sp"></span>${live.done ? '<button class="primary" data-live="close">Continue</button>' : '<button data-live="skip">Skip to final</button>'}</div></div></div>`;
+  live.pop = null;
+}
+overlay.addEventListener('click', e => { const b = e.target.closest('[data-live]'); if (!b) return; if (b.dataset.live === 'skip') stepLive(true); else { clearInterval(live.timer); live = null; drawLive(); render(); } });
+
 function divMini() {
   const T = S.teams[S.userTeam]; const L = G.divisions()[`${T.conf} ${T.div}`];
   return `<div class="card"><h3>${T.conf} ${T.div}</h3>${table('divmini', [
@@ -285,7 +343,7 @@ function draftRoom() {
   const pr = id => S.prospects.find(x => x.id === id);
   return `<div class="grid gdraft"><div class="card">
     ${pk ? `<div class="row"><h3>Round ${pk.r}, pick #${pk.n}: ${esc(G.tname(pk.team))}</h3></div>
-      ${pk.team === S.userTeam ? `<p class="good"><b>You are on the clock.</b> Pick from the board below or open a player.</p><div class="row"><button data-act="autopick">Let my staff pick</button></div>` :
+      ${pk.team === S.userTeam ? `<p class="good oncl" style="padding:8px 12px;border:1px solid var(--accent);border-radius:4px;font:600 18px var(--cond);text-transform:uppercase;letter-spacing:.08em">⏱ You are on the clock.</p><p class="muted"> Pick from the board below or open a player.</p><div class="row"><button data-act="autopick">Let my staff pick</button></div>` :
       `<div class="row"><button class="primary" data-act="simtopick">Sim to my next pick</button><button data-act="simone">Sim one pick</button></div>`}` : `<h3>The draft is complete</h3><p class="muted">Rookies have joined their teams. Finish your preseason moves on the Home tab.</p>`}
     <div style="margin-top:10px">${posSeg('proPos')} <div class="seg" style="margin-top:6px">${[['all', 'All'], ['scouted', 'Scouted'], ['watch', 'Watchlist']].map(([k, l]) => `<button class="${ui.proFilter === k ? 'on' : ''}" data-act="seg" data-key="proFilter" data-val="${k}">${l}</button>`).join('')}</div></div>
     <div style="margin-top:10px">${prospectTable(L, true)}</div></div>
@@ -374,7 +432,6 @@ function settings() {
   return `<div class="card"><h3>Save & settings</h3><p class="muted">The game autosaves in this browser after every action.</p>
     <div class="row"><button data-act="export">Export save</button><label class="row"><span>Load save file</span><input type="file" id="importFile" accept=".json,application/json"></label></div>
     <details style="margin-top:10px"><summary>Load from text</summary><textarea id="pasteText" placeholder="Paste an exported save here"></textarea><button style="margin-top:6px" data-act="pastesave">Load this save</button></details>
-    <div class="row" style="margin-top:14px"><span>Theme</span><div class="seg">${['auto', 'light', 'dark'].map(t => `<button class="${(document.documentElement.dataset.theme || 'auto') === t ? 'on' : ''}" data-act="theme" data-val="${t}">${t}</button>`).join('')}</div></div>
     <div class="row" style="margin-top:20px"><button class="danger" data-act="newgame">${ui.confirm === 'newgame' ? 'Click again to erase this save and start over' : 'Start a new game'}</button></div>
     ${S.history.length ? `<h3 style="margin-top:20px">Your history</h3>${table('hist', [{ k: 's', t: 'Season', v: h => h.season }, { k: 'r', t: 'Record', v: h => h.w, h: h => `${h.w}-${h.l}${h.t ? '-' + h.t : ''}` }, { k: 'x', t: 'Result', v: h => h.result }, { k: 'c', t: 'Champion', v: h => h.champ }], S.history)}` : ''}
     <div class="foot">Data: real 2026 rosters (status as of Week ${S.meta.roster_week}), 2025–26 snap counts and stats, and the 2026 schedule, all from the open nflverse project. Player ratings are calculated by this game from playing time, production and draft pedigree. Contracts are estimates (no public contract feed was available). The top of the 2027 draft class uses real prospects from public big boards; their ratings are this game's estimates. Later rounds, future classes and scouts are fictional.</div></div>`;
@@ -387,6 +444,7 @@ function render() {
   S = G.state();
   if (!S || ui.view === 'start') { app.innerHTML = startScreen() + (ui.toast ? `<div class="toast">${esc(ui.toast)}</div>` : ''); return; }
   setTheme();
+  ui.anim = ui.lastTab !== ui.tab; ui.lastTab = ui.tab;
   const views = { home, roster: () => roster(), scouting, draft: draftRoom, fa: freeAgency, resign, standings, schedule, league, news: newsTab, settings };
   if (ui.tab === 'resign' && S.phase !== 'resign') ui.tab = 'home';
   let html = shell((views[ui.tab] || home)());
@@ -416,8 +474,8 @@ app.addEventListener('click', e => {
     case 'tab': ui.tab = el.dataset.tab; ui.modal = null; render(); window.scrollTo(0, 0); break;
     case 'seg': ui[el.dataset.key] = el.dataset.val; render(); break;
     case 'plan': S.plan[el.dataset.k] = el.dataset.v; commit(); break;
-    case 'playweek': { const r = G.playWeek(); commit(); if (r && r.game) toast(`Final: ${r.game.a} ${r.game.as}, ${r.game.h} ${r.game.hs}`); break; }
-    case 'playoffround': G.playPlayoffRound(); commit(); break;
+    case 'playweek': { const r = G.playWeek(); commit(); if (r && r.game) startLive(r.game); break; }
+    case 'playoffround': { const g = G.playPlayoffRound(); commit(); if (g) startLive(g); break; }
     case 'offseason': G.startOffseason(); ui.tab = 'resign'; commit(); break;
     case 'resign': { const err = G.resign(id); if (err) toast(err); commit(); break; }
     case 'openfa': G.startFreeAgency(); ui.tab = 'fa'; commit(); break;

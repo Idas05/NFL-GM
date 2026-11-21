@@ -175,10 +175,21 @@ function simGame(g, record = true) {
   let as = A.pts, hs = H.pts, ot = false;
   if (as === hs) { ot = true; const r = rnd(); if (r < 0.04) {} else if (r < 0.52 + (rh.ovr - ra.ovr) * 0.01) hs += rnd() < 0.6 ? 3 : 6; else as += rnd() < 0.6 ? 3 : 6; }
   g.as = as; g.hs = hs; g.ot = ot;
+  if (ua || uh) g.ev = [...scoringEvents(A, A.pts, as, 'a'), ...scoringEvents(H, H.pts, hs, 'h')].sort((x, y) => x.q - y.q || x.r - y.r);
   g.box = { a: boxFor(g.a, ra, A, as, rh), h: boxFor(g.h, rh, H, hs, ra) };
   if (record) recordResult(g);
   injuries(g.a); injuries(g.h);
   return g;
+}
+// split a team's points into quarter-by-quarter scoring plays for the game-day ticker
+function scoringEvents(sc, reg, final, side) {
+  const ev = [];
+  for (let i = 0; i < sc.td; i++) ev.push({ s: side, q: ri(0, 3), p: 7, t: 'TD', r: rnd() });
+  for (let i = 0; i < sc.fg; i++) ev.push({ s: side, q: ri(0, 3), p: 3, t: 'FG', r: rnd() });
+  const diff = reg - ev.reduce((a, e) => a + e.p, 0);
+  const lastTd = ev.filter(e => e.t === 'TD').pop(); if (lastTd) lastTd.p += diff;
+  if (final > reg) ev.push({ s: side, q: 4, p: final - reg, t: final - reg >= 6 ? 'TD' : 'FG', r: 0 });
+  return ev;
 }
 function boxFor(abbr, r, sc, pts, opp) {
   const by = r.by, out = [];
@@ -292,7 +303,7 @@ E.playPlayoffRound = function () {
   let mine = null;
   for (const g of P.games.filter(g => g.round === P.round && g.as == null)) {
     simGame(g, false);
-    if (g.as === g.hs) g.hs += 3;
+    if (g.as === g.hs) { g.hs += 3; g.ot = true; if (g.ev) g.ev.push({ s: 'h', q: 4, p: 3, t: 'FG', r: 0 }); }
     const loser = g.as > g.hs ? g.h : g.a; P.elim[loser] = P.round + 1;
     if (g.a === S.userTeam || g.h === S.userTeam) mine = g;
   }
