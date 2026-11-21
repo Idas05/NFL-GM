@@ -448,11 +448,25 @@ const COLLEGES = ['Alabama','Georgia','Ohio State','Michigan','LSU','Texas','Ore
 const PROS_POS = [['QB',14],['RB',22],['WR',42],['TE',18],['OT',26],['IOL',30],['EDGE',32],['DT',28],['LB',28],['CB',38],['S',24],['K',4],['P',4],['LS',2]];
 const SIZE = { QB:[75,220],RB:[70,210],WR:[72,195],TE:[77,250],OT:[78,315],IOL:[76,310],EDGE:[76,255],DT:[75,305],LB:[74,235],CB:[71,190],S:[72,205],K:[72,195],P:[74,210],LS:[74,240] };
 const FORTY = { QB:4.75,RB:4.5,WR:4.45,TE:4.7,OT:5.15,IOL:5.2,EDGE:4.7,DT:4.95,LB:4.62,CB:4.45,S:4.52,K:4.9,P:4.95,LS:4.95 };
+function realProspects(year) {
+  const R = window.DRAFT_2027; if (year !== 2027 || !R) return [];
+  return R.prospects.map(([name, pos, col, avg]) => {
+    const r = Math.max(1, avg);
+    const ovr = clamp(Math.round(73 - (r - 1) * 0.13 + gauss() * 3.5), 52, 79);
+    const pot = clamp(Math.round(93 - (r - 1) * 0.15 + gauss() * 4), ovr + 5, 97);
+    const [h0, w0] = SIZE[pos]; const athl = clamp(Math.round(ovr + 8 + gauss() * 8), 40, 99);
+    return { id: 'P' + year + '_' + (S.nextId++), name, pos, age: ri(20, 22), col, ht: h0 + ri(-2, 2), wt: w0 + ri(-12, 12), ovr, pot,
+      forty: +(FORTY[pos] + (70 - athl) * 0.006 + gauss() * 0.03).toFixed(2), sp: 0, lvl: 0, u: rnd(), u2: rnd(), year, real: true, board: avg };
+  });
+}
 function genProspects(year) {
+  const real = realProspects(year);
   const pool = [];
   for (const [pos, n] of PROS_POS) for (let i = 0; i < n; i++) pool.push(pos);
+  // when a real class is loaded, generated players fill the later rounds
+  if (real.length) { const cnt = {}; real.forEach(p => cnt[p.pos] = (cnt[p.pos] || 0) + 1); for (const pos in cnt) for (let i = 0; i < cnt[pos] && pool.includes(pos); i++) pool.splice(pool.indexOf(pos), 1); }
   const L = pool.map(pos => {
-    const tier = rnd();
+    const tier = real.length ? rnd() * 0.88 : rnd();
     let ovr = tier > 0.97 ? ri(68, 76) : tier > 0.88 ? ri(60, 70) : tier > 0.6 ? ri(52, 63) : ri(42, 56);
     let pot = clamp(ovr + ri(4, 26) + (tier > 0.97 ? 8 : 0), 50, 99);
     if (pos === 'K' || pos === 'P' || pos === 'LS') { ovr = ri(55, 75); pot = ovr + ri(0, 10); }
@@ -465,8 +479,10 @@ function genProspects(year) {
   });
   // consensus media board: true value plus noise
   L.forEach(p => p.media = p.pot * 0.6 + p.ovr * 0.4 + (POSVAL[p.pos] || .3) * 8 + gauss() * 7);
-  L.sort((a, b) => b.media - a.media).forEach((p, i) => { p.rank = i + 1; delete p.media; });
-  return L;
+  L.sort((a, b) => b.media - a.media);
+  const all = [...real.sort((a, b) => a.board - b.board), ...L];
+  all.forEach((p, i) => { p.rank = i + 1; delete p.media; });
+  return all;
 }
 E.projRound = p => p.rank <= 32 ? '1st' : p.rank <= 64 ? '2nd' : p.rank <= 100 ? '3rd' : p.rank <= 140 ? '4th' : p.rank <= 180 ? '5th' : p.rank <= 220 ? '6th-7th' : 'UDFA';
 // What the user currently knows about a prospect.

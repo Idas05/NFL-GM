@@ -15,6 +15,7 @@ The game autosaves in the browser (localStorage). Use the Save tab to export/imp
 
 - `index.html` – page shell and styles
 - `js/data.js` – generated player, contract and schedule data (from `tools/build_data.py`)
+- `js/draft2027.js` – real 2027 draft prospects, consensus of public big boards (from `tools/build_draft2027.py`)
 - `js/teams.js` – 32 teams, conferences, divisions, accent colors
 - `js/engine.js` – game logic: ratings, game sim, standings/playoffs, scouting, draft, free agency, cap, progression
 - `js/ui.js` – rendering and input handling
@@ -35,7 +36,7 @@ To refresh: download those CSVs into a folder and run `python3 tools/build_data.
 
 - Player ratings are this game's own estimates from snaps, stats, draft position and age. They are not official.
 - Contracts are estimated (rookie scale from draft slot; veteran pay from rating and position, scaled to realistic payrolls). The public nflverse contract feed is stale (2022), so real years/amounts are not used.
-- Draft prospects and scouts are fictional.
+- The 2027 draft class's top 123 prospects are real college players, merged from Athlon Sports' Top 100 (Sep 30, 2026) and NFL Draft Countdown's Top 100 (Nov 16, 2026). Their ratings are this game's estimates based on consensus rank, and height, weight and 40 times are estimated. Later-round 2027 players, every class after 2027, and the scouts are fictional.
 - No trades, no coaching staff beyond scouts, simplified tiebreakers, no in-game play.
 
 ## Put it on the web (GitHub Pages)

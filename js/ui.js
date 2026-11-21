@@ -53,7 +53,7 @@ function startScreen() {
     ${Object.entries(groups).map(([g, L]) => `<h3 class="muted" style="margin:14px 0 8px">${g}</h3><div class="teamgrid">${L.map(t => `
       <button class="teambtn" data-act="pickteam" data-team="${t.abbr}"><span class="sw" style="background:linear-gradient(${t.c1} 65%,${t.c2} 65%)"></span>
       <span style="flex:1"><b>${esc(t.city)} ${esc(t.nick)}</b><br><span class="muted">${ui.mode === 'now' ? rec(R[t.abbr].T) + ' · ' : ''}OFF ${R[t.abbr].r.off} · DEF ${R[t.abbr].r.def}</span></span>${ovr(R[t.abbr].r.ovr)}</button>`).join('')}</div>`).join('')}
-    <div class="foot">Roster, snap and stat data: nflverse (rosters_weekly_2026, snap_counts, stats_player, schedules). Ratings and contracts are this game's own estimates, not official figures. Draft prospects are fictional. Not affiliated with the NFL or any game publisher.</div>
+    <div class="foot">Roster, snap and stat data: nflverse (rosters_weekly_2026, snap_counts, stats_player, schedules). Ratings and contracts are this game's own estimates, not official figures. The 2027 draft class's top prospects are real college players from public big boards (Athlon Sports, NFL Draft Countdown); later rounds and future classes are generated. Not affiliated with the NFL or any game publisher.</div>
   </div></div>`;
 }
 
@@ -225,7 +225,7 @@ function prospectModal(p) {
   const v = G.scoutView(p);
   const at = v.attrs ? G.attrs({ id: p.id, pos: p.pos, ovr: p.ovr }) : null;
   return `<div class="modal" data-act="closemodal"><div class="card" data-stop="1">
-    <div class="row"><div><h2>${esc(p.name)}</h2><div class="muted">${p.pos} · ${esc(p.col)} · Age ${p.age} · ${ht(p.ht)}, ${p.wt} lb${p.combine ? ` · 40yd ${p.forty}s` : ''}</div></div><span class="sp"></span><span class="chip">Media rank #${p.rank} · proj. ${G.projRound(p)}</span></div>
+    <div class="row"><div><h2>${esc(p.name)}</h2><div class="muted">${p.pos} · ${esc(p.col)} · Age ${p.age} · ${ht(p.ht)}, ${p.wt} lb${p.combine ? ` · 40yd ${p.forty}s` : ''}</div></div><span class="sp"></span><span class="chip">${p.real ? 'Consensus' : 'Media'} rank #${p.rank} · proj. ${G.projRound(p)}</span></div>
     <div class="grid g3" style="margin:14px 0"><div><div class="muted" style="font-size:12px">Scouting</div>${G.scoutLevelNames[p.lvl]}${p.lvl < 3 ? ` <span class="progress"><i style="width:${p.sp}%"></i></span>` : ''}</div>
     <div><div class="muted" style="font-size:12px">Current OVR</div>${rangeTxt(v.ovr)}</div><div><div class="muted" style="font-size:12px">Potential</div>${rangeTxt(v.pot)}</div></div>
     ${at ? at.map(([n, x]) => { const lo = v.exact ? x : Math.max(20, x - 6); return `<div class="attr"><span class="muted">${esc(n)}</span><div class="bar"><i style="width:${lo}%"></i></div><b>${v.exact ? x : '~' + (Math.round(x / 5) * 5)}</b></div>`; }).join('') : `<p class="muted">Attributes unlock at the "Cross-checked" scouting level. Assign a scout on the Scouting tab.</p>`}
@@ -250,7 +250,7 @@ function scouting() {
     { k: 'n', t: 'Name', v: s => s.name }, { k: 'sk', t: 'Skill', v: s => s.skill, h: s => `<span class="stars">${'★'.repeat(s.skill)}${'☆'.repeat(5 - s.skill)}</span>` },
     { k: 'sp', t: 'Focus', v: s => s.spec }, { k: 'sal', t: 'Salary', v: s => s.salary, h: s => money(s.salary), num: 1 },
     { k: 'a', t: '', v: () => 0, h: s => `<button class="sm primary" data-act="hirescout" data-id="${s.id}">Hire</button>` }], S.scoutPool, { sort: { k: 'sk', d: -1 } })}</div>`;
-  return `<div class="grid g2">${staff}${hire}</div><div class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><h3>${pool[0] ? pool[0].year : ''} draft class</h3><span class="sp"></span>
+  return `<div class="grid g2">${staff}${hire}</div><div class="card" style="margin-top:14px"><div class="row" style="margin-bottom:10px"><div><h3>${pool[0] ? pool[0].year : ''} draft class</h3>${pool.some(p => p.real) ? `<div class="muted" style="font-size:12px">Top ${pool.filter(p => p.real).length} are real college players, ranked by a consensus of ${window.DRAFT_2027.sources.join(' and ')}. Their grades are hidden until scouted. Height, weight and 40 times are estimates; later-round players are fictional.</div>` : '<div class="muted" style="font-size:12px">Future classes are generated.</div>'}</div><span class="sp"></span>
     <div class="seg">${[['all', 'All'], ['scouted', 'Scouted'], ['watch', 'Watchlist']].map(([k, l]) => `<button class="${ui.proFilter === k ? 'on' : ''}" data-act="seg" data-key="proFilter" data-val="${k}">${l}</button>`).join('')}</div></div>
     <div style="margin-bottom:10px">${posSeg('proPos')}</div>${prospectTable(L, false)}</div>`;
 }
@@ -258,7 +258,7 @@ function prospectTable(L, draftMode) {
   const cols = [
     { k: 'w', t: '★', v: p => ui.watch[p.id] ? 0 : 1, h: p => `<a href="#" data-act="watch" data-id="${p.id}" title="Watchlist" style="text-decoration:none">${ui.watch[p.id] ? '★' : '☆'}</a>` },
     { k: 'rank', t: 'Rank', v: p => p.rank, num: 1 },
-    { k: 'name', t: 'Name', v: p => p.name, h: p => `<a href="#" data-act="player" data-id="${p.id}">${esc(p.name)}</a>` },
+    { k: 'name', t: 'Name', v: p => p.name, h: p => `<a href="#" data-act="player" data-id="${p.id}">${esc(p.name)}</a>${p.real ? ' <span class="chip" title="Real college prospect">Real</span>' : ''}` },
     { k: 'pos', t: 'Pos', v: p => G.POS.indexOf(p.pos), h: p => p.pos },
     { k: 'col', t: 'College', v: p => p.col },
     { k: 'size', t: 'Size', v: p => p.wt, h: p => `${ht(p.ht)} ${p.wt}` },
@@ -377,7 +377,7 @@ function settings() {
     <div class="row" style="margin-top:14px"><span>Theme</span><div class="seg">${['auto', 'light', 'dark'].map(t => `<button class="${(document.documentElement.dataset.theme || 'auto') === t ? 'on' : ''}" data-act="theme" data-val="${t}">${t}</button>`).join('')}</div></div>
     <div class="row" style="margin-top:20px"><button class="danger" data-act="newgame">${ui.confirm === 'newgame' ? 'Click again to erase this save and start over' : 'Start a new game'}</button></div>
     ${S.history.length ? `<h3 style="margin-top:20px">Your history</h3>${table('hist', [{ k: 's', t: 'Season', v: h => h.season }, { k: 'r', t: 'Record', v: h => h.w, h: h => `${h.w}-${h.l}${h.t ? '-' + h.t : ''}` }, { k: 'x', t: 'Result', v: h => h.result }, { k: 'c', t: 'Champion', v: h => h.champ }], S.history)}` : ''}
-    <div class="foot">Data: real 2026 rosters (status as of Week ${S.meta.roster_week}), 2025–26 snap counts and stats, and the 2026 schedule, all from the open nflverse project. Player ratings are calculated by this game from playing time, production and draft pedigree. Contracts are estimates (no public contract feed was available). Draft prospects and scouts are fictional.</div></div>`;
+    <div class="foot">Data: real 2026 rosters (status as of Week ${S.meta.roster_week}), 2025–26 snap counts and stats, and the 2026 schedule, all from the open nflverse project. Player ratings are calculated by this game from playing time, production and draft pedigree. Contracts are estimates (no public contract feed was available). The top of the 2027 draft class uses real prospects from public big boards; their ratings are this game's estimates. Later rounds, future classes and scouts are fictional.</div></div>`;
 }
 function newsTab() { return `<div class="card"><h3>News</h3>${newsList(400)}</div>`; }
 function boxModal(gid) { const g = S.schedule[gid]; return `<div class="modal" data-act="closemodal"><div class="card" data-stop="1"><h3>Week ${g.w}</h3>${boxscore(g)}<div class="row"><span class="sp"></span><button data-act="closemodal">Close</button></div></div></div>`; }
